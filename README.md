@@ -5,7 +5,7 @@
 Never miss an slack alert again. Slack Watch Keeper monitors your Slack dock badge during configured hours and plays a loud alarm — even if your system volume is low or muted.
 
 ![macOS](https://img.shields.io/badge/macOS-10.14+-blue?logo=apple)
-![License](https://img.shields.io/badge/license-MIT-green)
+![License](https://img.shields.io/badge/license-Unlicense-blue)
 ![AppleScript](https://img.shields.io/badge/AppleScript-native-orange)
 
 ---
