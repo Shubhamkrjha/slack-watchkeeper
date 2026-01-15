@@ -12,9 +12,9 @@
 -- │                              CONFIGURATION                                │
 -- └───────────────────────────────────────────────────────────────────────────┘
 
-property intervalSeconds : 30
+property intervalSeconds : 300
 property soundFileName : "alarm.mp3"
-property alertVolume : 55
+property alertVolume : 90
 property debugMode : false
 property pidFile : "/tmp/slack-watch-caffeinate.pid"
 
@@ -28,9 +28,9 @@ property maxAlertAttempts : 5
 
 -- Alert window (24h format)
 property alertStartHour : 19
-property alertStartMin : 30
-property alertEndHour : 12
-property alertEndMin : 30
+property alertStartMin : 20
+property alertEndHour : 4
+property alertEndMin : 15
 
 -- Active days
 property alertDaysEvening : {Monday, Tuesday, Wednesday, Thursday, Friday}
@@ -178,9 +178,7 @@ on playNetworkAlert()
 		"Cannot reach slack.com" & return & ¬
 		"Slack Watch Keeper is paused." & return & return & ¬
 		"Will auto-resume when network returns." & return & ¬
-		"(Re-alert in " & networkRealertMinutes & " minutes if still down)" & return & return & ¬
-		"Click to acknowledge."
-	
+		"(Re-alert in " & networkRealertMinutes & " minutes if still down)"	
 	try
 		display dialog alertMessage buttons {"Acknowledge"} default button 1 giving up after dialogTimeout with title "Slack Watch Keeper"
 		set dialogResult to result
@@ -211,12 +209,27 @@ end isSlackRunning
 on startSlack()
 	try
 		do shell script "open -g -a Slack"
+		delay 2
+		-- Force Slack to background (it sometimes foregrounds itself after launch)
+		tell application "System Events"
+			if exists process "Slack" then
+				set visible of process "Slack" to false
+			end if
+		end tell
 		return true
 	on error errMsg
 		printError("  ✗ Failed to start Slack: " & errMsg)
 		return false
 	end try
 end startSlack
+
+on openSlackForeground()
+	try
+		tell application "Slack" to activate
+	on error
+		do shell script "open -a Slack"
+	end try
+end openSlackForeground
 
 on isNumericBadge(badgeText)
 	if badgeText is "" then return false
@@ -329,21 +342,24 @@ on playAlarmWithDialog(badgeCount, attemptNum, maxAttempts)
 	if alertMode is "deadman" then
 		set prealarmMessage to "Slack Alert!" & return & return & ¬
 			badgeCount & " unread notification(s)" & return & return & ¬
-			"Alarm will start in 10 seconds." & return & return & ¬
-			"Click to acknowledge."
+			"Alarm will start in 10 seconds."
 	else
 		set prealarmMessage to "Slack Alert!" & return & return & ¬
 			badgeCount & " unread notification(s)" & return & ¬
 			"Attempt " & attemptNum & " of " & maxAttempts & return & return & ¬
-			"Alarm will start in 10 seconds." & return & return & ¬
-			"Click to acknowledge."
+			"Alarm will start in 10 seconds."
 	end if
 	
 	try
-		display dialog prealarmMessage buttons {"Acknowledge"} default button 1 giving up after 10 with title "Slack Watch Keeper"
+		display dialog prealarmMessage buttons {"Acknowledge", "Open Slack"} default button 2 giving up after 10 with title "Slack Watch Keeper"
 		set dialogResult to result
 		if not (gave up of dialogResult) then
-			printSuccess(nowStamp() & " ✓ Acknowledged.")
+			if button returned of dialogResult is "Open Slack" then
+				openSlackForeground()
+				printSuccess(nowStamp() & " ✓ Opened Slack.")
+			else
+				printSuccess(nowStamp() & " ✓ Acknowledged.")
+			end if
 			return true
 		end if
 	on error
@@ -359,17 +375,15 @@ on playAlarmWithDialog(badgeCount, attemptNum, maxAttempts)
 		
 		if alertMode is "deadman" then
 			set alarmMessage to "Slack Alert!" & return & return & ¬
-				badgeCount & " unread notification(s)" & return & return & ¬
-				"Click to acknowledge."
+				badgeCount & " unread notification(s)"
 		else
 			set alarmMessage to "Slack Alert!" & return & return & ¬
 				badgeCount & " unread notification(s)" & return & ¬
-				"Attempt " & attemptNum & " of " & maxAttempts & return & return & ¬
-				"Click to acknowledge."
+				"Attempt " & attemptNum & " of " & maxAttempts
 		end if
 		
 		try
-			display dialog alarmMessage buttons {"Acknowledge"} default button 1 giving up after dialogTimeout with title "Slack Watch Keeper"
+			display dialog alarmMessage buttons {"Acknowledge", "Open Slack"} default button 2 giving up after dialogTimeout with title "Slack Watch Keeper"
 			set dialogResult to result
 			do shell script "(kill -9 " & alarmPID & " 2>/dev/null || true) &"
 			
@@ -409,7 +423,12 @@ on playAlarmWithDialog(badgeCount, attemptNum, maxAttempts)
 					return false
 				end if
 			else
-				printSuccess(nowStamp() & " ✓ Acknowledged. Alarm stopped.")
+				if button returned of dialogResult is "Open Slack" then
+					openSlackForeground()
+					printSuccess(nowStamp() & " ✓ Opened Slack.")
+				else
+					printSuccess(nowStamp() & " ✓ Acknowledged.")
+				end if
 				return true
 			end if
 		on error
@@ -668,7 +687,7 @@ end if
 printLog("")
 
 if not allChecksPassed then
-	printError("  ✗ STARTUP FAILED")
+	printError("  ✗ Slack Watch Keeper failed to start")
 	printLog("")
 	if caffeinatePID is not "" then
 		try
@@ -704,6 +723,10 @@ set loopCount to 0
 
 repeat
 	set loopCount to loopCount + 1
+	
+	
+	-- simulate user activity
+	tell application "System Events" to key code 58 -- Option key 
 	
 	
 	-- Safety: Time window check
