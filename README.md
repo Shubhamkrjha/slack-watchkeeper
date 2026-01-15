@@ -42,7 +42,7 @@ Never miss an slack alert again. Slack Watch Keeper monitors your Slack dock bad
 ### 1. Clone and Setup
 
 ```bash
-git clone https://github.com/Shubhamkrjha/slack-watch.git
+git clone https://github.com/Shubhamkrjha/slack-watchkeeper.git
 cd slack-watch
 chmod +x slack-watch.sh
 ```
